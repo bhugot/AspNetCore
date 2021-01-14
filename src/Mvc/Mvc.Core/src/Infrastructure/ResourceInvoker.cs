@@ -84,41 +84,22 @@ namespace Microsoft.AspNetCore.Mvc.Infrastructure
             }
 
             Exception? releaseException = null;
+            ValueTask releaseResult = default;
             try
             {
-                ReleaseResources();
+                releaseResult = ReleaseResources();
             }
             catch (Exception exception)
             {
                 releaseException = exception;
             }
 
-            Exception? scopeException = null;
-            try
+            if (releaseException == null && !releaseResult.IsCompletedSuccessfully)
             {
-                scope?.Dispose();
-            }
-            catch (Exception exception)
-            {
-                scopeException = exception;
+                return HandleAsyncReleaseErrors(releaseResult, scope);
             }
 
-            if (releaseException == null && scopeException == null)
-            {
-                return Task.CompletedTask;
-            }
-            else if (releaseException != null && scopeException != null)
-            {
-                return Task.FromException(new AggregateException(releaseException, scopeException));
-            }
-            else if (releaseException != null)
-            {
-                return Task.FromException(releaseException);
-            }
-            else
-            {
-                return Task.FromException(scopeException!);
-            }
+            return HandleReleaseErrors(scope, releaseException);
 
             static async Task Awaited(ResourceInvoker invoker, Task task, IDisposable? scope)
             {
@@ -183,6 +164,51 @@ namespace Microsoft.AspNetCore.Mvc.Infrastructure
                         actionContext.ActionDescriptor,
                         actionContext.HttpContext,
                         actionContext.RouteData);
+                }
+            }
+
+            static async Task HandleAsyncReleaseErrors(ValueTask releaseResult, IDisposable? scope)
+            {
+                Exception? releaseException = null;
+                try
+                {
+                    await releaseResult;
+                }
+                catch (Exception exception)
+                {
+                    releaseException = exception;
+                }
+
+                await HandleReleaseErrors(scope, releaseException);
+            }
+
+            static Task HandleReleaseErrors(IDisposable? scope, Exception? releaseException)
+            {
+                Exception? scopeException = null;
+                try
+                {
+                    scope?.Dispose();
+                }
+                catch (Exception exception)
+                {
+                    scopeException = exception;
+                }
+
+                if (releaseException == null && scopeException == null)
+                {
+                    return Task.CompletedTask;
+                }
+                else if (releaseException != null && scopeException != null)
+                {
+                    return Task.FromException(new AggregateException(releaseException, scopeException));
+                }
+                else if (releaseException != null)
+                {
+                    return Task.FromException(releaseException);
+                }
+                else
+                {
+                    return Task.FromException(scopeException!);
                 }
             }
         }

@@ -130,7 +130,7 @@ namespace Microsoft.AspNetCore.Mvc.Infrastructure
                     }
                     finally
                     {
-                        invoker.ReleaseResources();
+                        await invoker.ReleaseResources();
                     }
                 }
                 finally
@@ -172,7 +172,7 @@ namespace Microsoft.AspNetCore.Mvc.Infrastructure
                         }
                         finally
                         {
-                            invoker.ReleaseResources();
+                            await invoker.ReleaseResources();
                             logger.ExecutedAction(actionContext.ActionDescriptor, stopwatch.GetElapsedTime());
                         }
                     }
@@ -191,7 +191,7 @@ namespace Microsoft.AspNetCore.Mvc.Infrastructure
         /// In derived types, releases resources such as controller, model, or page instances created as
         /// part of invoking the inner pipeline.
         /// </summary>
-        protected abstract void ReleaseResources();
+        protected abstract ValueTask ReleaseResources();
 
         private Task InvokeFilterPipelineAsync()
         {
